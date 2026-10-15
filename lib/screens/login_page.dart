@@ -1,5 +1,8 @@
+
 import 'package:flutter/material.dart';
-import '../main.dart'; // Pour accéder à 'supabase'
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../main.dart';
 import 'register_page.dart';
 import 'home_page.dart';
 
@@ -13,30 +16,57 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
   bool _isLoading = false;
 
   Future<void> _login() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage(
+        'Veuillez remplir tous les champs.',
+        isError: true,
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Connexion via Supabase Auth
       await supabase.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+        email: email,
+        password: password,
       );
 
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const HomePage(),
+        ),
+      );
+    } on AuthException catch (e) {
+      debugPrint('Supabase login error: ${e.message}');
+      debugPrint('Status code: ${e.statusCode}');
+
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
+        _showMessage(
+          _getLoginErrorMessage(e),
+          isError: true,
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('Unexpected login error: $e');
+      debugPrintStack(stackTrace: stackTrace);
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Échec de la connexion : $e'), backgroundColor: Colors.red),
+        _showMessage(
+          'Une erreur inattendue est survenue. Vérifiez votre connexion.',
+          isError: true,
         );
       }
     } finally {
@@ -46,6 +76,49 @@ class _LoginPageState extends State<LoginPage> {
         });
       }
     }
+  }
+
+  String _getLoginErrorMessage(AuthException e) {
+    final message = e.message.toLowerCase();
+
+    if (message.contains('invalid login credentials')) {
+      return 'Email ou mot de passe incorrect.';
+    }
+
+    if (message.contains('email not confirmed')) {
+      return 'Veuillez confirmer votre adresse email avant de vous connecter.';
+    }
+
+    if (message.contains('too many requests')) {
+      return 'Trop de tentatives. Veuillez réessayer plus tard.';
+    }
+
+    return 'Échec de la connexion : ${e.message}';
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+      ),
+    );
+  }
+
+  void _openRegisterPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const RegisterPage(),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -68,57 +141,65 @@ class _LoginPageState extends State<LoginPage> {
                   fit: BoxFit.contain,
                 ),
                 const SizedBox(height: 30),
+
                 TextField(
                   controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  autofillHints: const [AutofillHints.email],
+                  enabled: !_isLoading,
                   decoration: const InputDecoration(
                     labelText: 'Email (Login)',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.person),
                   ),
                 ),
+
                 const SizedBox(height: 16),
+
                 TextField(
                   controller: _passwordController,
                   obscureText: true,
+                  autofillHints: const [AutofillHints.password],
+                  enabled: !_isLoading,
+                  onSubmitted: (_) => _login(),
                   decoration: const InputDecoration(
                     labelText: 'Password',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.lock),
                   ),
                 ),
+
                 const SizedBox(height: 20),
-                _isLoading
-                    ? const CircularProgressIndicator()
-                    : ElevatedButton(
-                        onPressed: _login,
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
-                        ),
-                        child: const Text('Sign In'),
-                      ),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _login,
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text('Sign In'),
+                  ),
+                ),
+
                 const SizedBox(height: 16),
+
                 TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const RegisterPage()),
-                    );
-                  },
-                  child: const Text("Don't have an account? Sign Up"),
+                  onPressed: _isLoading ? null : _openRegisterPage,
+                  child: const Text(
+                    "Don't have an account? Sign Up",
+                  ),
                 ),
               ],
             ),
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const RegisterPage()),
-          );
-        },
-        child: const Icon(Icons.add),
       ),
     );
   }

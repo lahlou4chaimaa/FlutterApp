@@ -1,99 +1,108 @@
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'login_page.dart';
 import 'tasks_page.dart';
+import 'settings_page.dart';
+import 'learning_hub_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
-  Future<void> _logout(BuildContext context) async {
-    try {
-      await Supabase.instance.client.auth.signOut();
+  static const Color primaryBlue = Color(0xFF3157D5);
+  static const Color darkBlue = Color(0xFF172B65);
+  static const Color backgroundColor = Color(0xFFF5F7FC);
 
-      if (!context.mounted) return;
-
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const LoginPage(),
-        ),
-        (route) => false,
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Logout failed: $e'),
-        ),
-      );
-    }
+  void _openLearningHub(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LearningHubPage()),
+    );
   }
 
   void _openTasks(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const TasksPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const TasksPage()),
     );
   }
 
-  void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature will be available soon.'),
+  void _openSettings(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SettingsPage()),
+    );
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Log out'),
+        content: const Text('Are you sure you want to log out of SkillUp?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Log out'),
+          ),
+        ],
       ),
+    );
+
+    if (shouldLogout != true || !context.mounted) return;
+
+    await Supabase.instance.client.auth.signOut();
+
+    if (!context.mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+      (route) => false,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final supabase = Supabase.instance.client;
-    final user = supabase.auth.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
 
-    final email = user?.email ?? 'No email available';
-    final metadata = user?.userMetadata ?? {};
+    final metadataName = user?.userMetadata?['name']?.toString();
+    final email = user?.email ?? '';
+    final firstName = (metadataName != null && metadataName.trim().isNotEmpty)
+        ? metadataName.trim().split(' ').first
+        : (email.contains('@') ? email.split('@').first : 'Student');
 
-    final storedName = metadata['nom']?.toString().trim();
-
-    final String name;
-
-    if (storedName != null && storedName.isNotEmpty) {
-      name = storedName;
-    } else if (email.contains('@')) {
-      name = email.split('@').first;
-    } else {
-      name = 'Student';
-    }
-
-    final initial = name.isNotEmpty
-        ? name[0].toUpperCase()
-        : 'S';
+    final displayName = firstName.isNotEmpty ? firstName : 'Student';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FC),
-
+      backgroundColor: backgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF172B4D),
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'SkillUp',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 23,
-          ),
+        iconTheme: const IconThemeData(color: darkBlue),
+        title: const Row(
+          children: [
+            Icon(Icons.school_rounded, color: primaryBlue, size: 27),
+            SizedBox(width: 9),
+            Text(
+              'SkillUp',
+              style: TextStyle(
+                color: darkBlue,
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
-            tooltip: 'Notifications',
-            onPressed: () {
-              _showComingSoon(context, 'Notifications');
-            },
-            icon: const Icon(Icons.notifications_none_rounded),
+            tooltip: 'Settings',
+            onPressed: () => _openSettings(context),
+            icon: const Icon(Icons.settings_outlined),
           ),
           const SizedBox(width: 8),
         ],
@@ -106,13 +115,10 @@ class HomePage extends StatelessWidget {
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(22),
+                padding: const EdgeInsets.fromLTRB(22, 28, 22, 25),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      Color(0xFF3157D5),
-                      Color(0xFF6485F0),
-                    ],
+                    colors: [primaryBlue, darkBlue],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -120,48 +126,72 @@ class HomePage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: Colors.white,
-                      child: Text(
-                        initial,
-                        style: const TextStyle(
-                          color: Color(0xFF3157D5),
-                          fontSize: 25,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    Container(
+                      width: 62,
+                      height: 62,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        color: Colors.white,
+                        size: 35,
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
                     Text(
-                      name,
+                      displayName,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 19,
+                        fontSize: 21,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 5),
                     Text(
                       email,
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
                         fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'SKILLUP MEMBER',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          letterSpacing: 1.2,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
               _drawerItem(
+                context,
                 icon: Icons.dashboard_rounded,
                 title: 'Dashboard',
+                selected: true,
                 onTap: () => Navigator.pop(context),
               ),
 
               _drawerItem(
+                context,
                 icon: Icons.check_circle_outline_rounded,
                 title: 'My Tasks',
                 onTap: () {
@@ -171,416 +201,409 @@ class HomePage extends StatelessWidget {
               ),
 
               _drawerItem(
-                icon: Icons.psychology_outlined,
-                title: 'My Skills',
+                context,
+                icon: Icons.auto_stories_rounded,
+                title: 'Learning Hub',
                 onTap: () {
                   Navigator.pop(context);
-                  _showComingSoon(context, 'My Skills');
+                  _openLearningHub(context);
                 },
               ),
 
               _drawerItem(
-                icon: Icons.work_outline_rounded,
-                title: 'My Applications',
-                onTap: () {
-                  Navigator.pop(context);
-                  _showComingSoon(context, 'My Applications');
-                },
-              ),
-
-              _drawerItem(
-                icon: Icons.person_outline_rounded,
-                title: 'My Profile',
-                onTap: () {
-                  Navigator.pop(context);
-                  _showComingSoon(context, 'My Profile');
-                },
-              ),
-
-              _drawerItem(
+                context,
                 icon: Icons.settings_outlined,
                 title: 'Settings',
                 onTap: () {
                   Navigator.pop(context);
-                  _showComingSoon(context, 'Settings');
+                  _openSettings(context);
                 },
               ),
 
               const Spacer(),
 
-              const Divider(height: 1),
+              const Divider(indent: 20, endIndent: 20),
 
               _drawerItem(
+                context,
                 icon: Icons.logout_rounded,
-                title: 'Logout',
+                title: 'Log out',
                 iconColor: Colors.redAccent,
-                textColor: Colors.redAccent,
+                titleColor: Colors.redAccent,
                 onTap: () {
                   Navigator.pop(context);
                   _logout(context);
                 },
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
             ],
           ),
         ),
       ),
 
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            const Text(
-              'Your learning space',
-              style: TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 14,
-              ),
-            ),
-
-            const SizedBox(height: 6),
-
-            Text(
-              'Hello, $name!',
-              style: const TextStyle(
-                color: Color(0xFF172B4D),
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            const Text(
-              'Plan your goals, develop your skills, '
-              'and prepare for your future.',
-              style: TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 15,
-                height: 1.5,
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Main banner
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF3157D5),
-                    Color(0xFF6485F0),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Welcome section
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [primaryBlue, darkBlue],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(25),
+                  boxShadow: [
+                    BoxShadow(
+                      color: primaryBlue.withOpacity(0.18),
+                      blurRadius: 24,
+                      offset: const Offset(0, 10),
+                    ),
                   ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.rocket_launch_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  const Text(
-                    'Small steps, big achievements.',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 23,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(height: 9),
-
-                  const Text(
-                    'Build better habits and make progress '
-                    'every day with SkillUp.',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      height: 1.5,
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _openTasks(context),
-                      icon: const Icon(Icons.add_task_rounded),
-                      label: const Text('Manage my tasks'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF3157D5),
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 14,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -15,
+                      top: -15,
+                      child: Icon(
+                        Icons.school_rounded,
+                        size: 125,
+                        color: Colors.white.withOpacity(0.08),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 28),
-
-            const Text(
-              'Your workspace',
-              style: TextStyle(
-                color: Color(0xFF172B4D),
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 14),
-
-            // Workspace cards
-            Row(
-              children: [
-                Expanded(
-                  child: _featureCard(
-                    icon: Icons.checklist_rounded,
-                    title: 'My Tasks',
-                    description: 'Organize your daily goals',
-                    color: const Color(0xFF3157D5),
-                    onTap: () => _openTasks(context),
-                  ),
-                ),
-
-                const SizedBox(width: 14),
-
-                Expanded(
-                  child: _featureCard(
-                    icon: Icons.psychology_alt_rounded,
-                    title: 'My Skills',
-                    description: 'Track your progress',
-                    color: const Color(0xFF159A82),
-                    onTap: () {
-                      _showComingSoon(context, 'My Skills');
-                    },
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 14),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _featureCard(
-                    icon: Icons.work_outline_rounded,
-                    title: 'Career',
-                    description: 'Track your applications',
-                    color: const Color(0xFFDB8B25),
-                    onTap: () {
-                      _showComingSoon(
-                        context,
-                        'My Applications',
-                      );
-                    },
-                  ),
-                ),
-
-                const SizedBox(width: 14),
-
-                Expanded(
-                  child: _featureCard(
-                    icon: Icons.person_outline_rounded,
-                    title: 'My Profile',
-                    description: 'Manage your account',
-                    color: const Color(0xFF8B5CF6),
-                    onTap: () {
-                      _showComingSoon(context, 'My Profile');
-                    },
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            // Tip card
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: const Color(0xFFE8ECF5),
-                ),
-              ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.lightbulb_outline_rounded,
-                    color: Color(0xFFDB8B25),
-                    size: 28,
-                  ),
-
-                  SizedBox(width: 14),
-
-                  Expanded(
-                    child: Column(
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'A simple tip',
-                          style: TextStyle(
-                            color: Color(0xFF172B4D),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.14),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            'YOUR PERSONAL WORKSPACE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              letterSpacing: 1.1,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-
-                        SizedBox(height: 6),
-
+                        const SizedBox(height: 20),
                         Text(
-                          'Choose one realistic goal each day. '
-                          'Consistent progress is more useful '
-                          'than trying to do everything at once.',
+                          'Hello, $displayName!',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Build better habits, learn new skills, '
+                          'and make progress every day.',
                           style: TextStyle(
-                            color: Color(0xFF64748B),
-                            height: 1.5,
-                            fontSize: 13,
+                            color: Colors.white.withOpacity(0.88),
+                            fontSize: 14,
+                            height: 1.6,
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        FilledButton(
+                          onPressed: () => _openLearningHub(context),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: primaryBlue,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 13,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(13),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Explore Learning Hub',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(width: 8),
+                              Icon(Icons.arrow_forward_rounded, size: 18),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            Center(
-              child: Text(
-                'SkillUp • Your personal growth companion',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.blueGrey.shade400,
-                  fontSize: 12,
+                  ],
                 ),
               ),
-            ),
 
-            const SizedBox(height: 12),
-          ],
+              const SizedBox(height: 30),
+
+              // Section heading
+              const Text(
+                'Your workspace',
+                style: TextStyle(
+                  color: darkBlue,
+                  fontSize: 23,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                'Everything you need to stay organized and keep learning.',
+                style: TextStyle(
+                  color: Colors.blueGrey.shade600,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Main feature cards
+              _featureCard(
+                context,
+                icon: Icons.check_circle_outline_rounded,
+                title: 'My Tasks',
+                description:
+                    'Organize your work, manage deadlines, '
+                    'and track your progress.',
+                tag: 'PRODUCTIVITY',
+                iconColor: const Color(0xFF5275E8),
+                iconBackground: const Color(0xFFEDF1FF),
+                onTap: () => _openTasks(context),
+              ),
+
+              const SizedBox(height: 15),
+
+              _featureCard(
+                context,
+                icon: Icons.auto_stories_rounded,
+                title: 'Learning Hub',
+                description:
+                    'Discover learning resources and manage '
+                    'your personal study collection.',
+                tag: 'LEARNING',
+                iconColor: const Color(0xFF168B83),
+                iconBackground: const Color(0xFFE6F7F4),
+                onTap: () => _openLearningHub(context),
+              ),
+
+              const SizedBox(height: 15),
+
+              _featureCard(
+                context,
+                icon: Icons.manage_accounts_rounded,
+                title: 'My Profile & Settings',
+                description:
+                    'View your account information and '
+                    'manage your application preferences.',
+                tag: 'YOUR ACCOUNT',
+                iconColor: const Color(0xFF9A63C7),
+                iconBackground: const Color(0xFFF4ECFB),
+                onTap: () => _openSettings(context),
+              ),
+
+              const SizedBox(height: 28),
+
+              // Daily reminder
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(19),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF0FF),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFDCE5FF)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 43,
+                      height: 43,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.lightbulb_outline_rounded,
+                        color: primaryBlue,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'A little progress every day',
+                            style: TextStyle(
+                              color: darkBlue,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            'Choose one task or learning resource '
+                            'and take the next step toward your goals.',
+                            style: TextStyle(
+                              color: Color(0xFF526487),
+                              fontSize: 13,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 25),
+
+              Center(
+                child: Text(
+                  'SkillUp  •  Learn. Organize. Grow.',
+                  style: TextStyle(
+                    color: Colors.blueGrey.shade400,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openTasks(context),
-        backgroundColor: const Color(0xFF3157D5),
-        foregroundColor: Colors.white,
-        tooltip: 'Open tasks',
-        child: const Icon(Icons.add_rounded),
       ),
     );
   }
 
-  Widget _drawerItem({
+  Widget _drawerItem(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
+    bool selected = false,
     Color? iconColor,
-    Color? textColor,
+    Color? titleColor,
   }) {
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: iconColor ?? const Color(0xFF64748B),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: textColor ?? const Color(0xFF172B4D),
-          fontWeight: FontWeight.w500,
+    final itemColor =
+        titleColor ?? (selected ? primaryBlue : const Color(0xFF526078));
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      child: ListTile(
+        selected: selected,
+        selectedTileColor: const Color(0xFFEDF1FF),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+        leading: Icon(icon, color: iconColor ?? itemColor, size: 22),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: itemColor,
+            fontSize: 14,
+            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+          ),
         ),
+        trailing: selected
+            ? const Icon(Icons.circle, color: primaryBlue, size: 8)
+            : null,
+        onTap: onTap,
       ),
-      onTap: onTap,
-      horizontalTitleGap: 12,
     );
   }
 
-  Widget _featureCard({
+  Widget _featureCard(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required String description,
-    required Color color,
+    required String tag,
+    required Color iconColor,
+    required Color iconBackground,
     required VoidCallback onTap,
   }) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(21),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(21),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(19),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: const Color(0xFFE8ECF5),
-            ),
+            borderRadius: BorderRadius.circular(21),
+            border: Border.all(color: const Color(0xFFE9EDF5)),
           ),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                width: 54,
+                height: 54,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  color: iconBackground,
+                  borderRadius: BorderRadius.circular(17),
                 ),
+                child: Icon(icon, color: iconColor, size: 27),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tag,
+                      style: TextStyle(
+                        color: iconColor,
+                        fontSize: 9,
+                        letterSpacing: 1.1,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: darkBlue,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        color: Colors.blueGrey.shade600,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(top: 13),
                 child: Icon(
-                  icon,
-                  color: color,
-                  size: 25,
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Color(0xFF172B4D),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 6),
-
-              Text(
-                description,
-                style: const TextStyle(
-                  color: Color(0xFF64748B),
-                  fontSize: 12,
-                  height: 1.4,
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: Colors.blueGrey.shade400,
                 ),
               ),
             ],
